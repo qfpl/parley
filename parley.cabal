@@ -1,0 +1,30 @@
+name:                parley
+version:             0.1.0.0
+synopsis:            Light weight comments for the web
+-- description:
+homepage:            https://github.com/ajmccluskey/parley
+license:             BSD3
+license-file:        LICENSE
+author:              Andrew McCluskey
+maintainer:          andrew@ajmccluskey.com
+copyright:           Copyright (C) 2017 Andrew McCluskey
+category:            Web
+build-type:          Simple
+extra-source-files:  ChangeLog.md
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Parley.Main
+  -- other-modules:
+  -- other-extensions:
+  build-depends:       base >=4.9 && <4.10
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+
+executable             parley
+  build-depends:       base >=4.9 && <4.10
+                     , parley
+  hs-source-dirs:      src
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  ghc-options:         -threaded -Wall -Werror
