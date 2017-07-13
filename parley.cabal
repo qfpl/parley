@@ -24,7 +24,7 @@ library
 executable             parley
   build-depends:       base >=4.9 && <4.10
                      , parley
-  hs-source-dirs:      src
+  hs-source-dirs:      src-exe
   main-is:             Main.hs
   default-language:    Haskell2010
   ghc-options:         -threaded -Wall -Werror
