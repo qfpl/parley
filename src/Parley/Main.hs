@@ -2,66 +2,71 @@
 
 module Parley.Main where
 
-import           Control.Monad            ((<=<))
+import           Control.Exception.Base     (bracket)
 
-import qualified Data.ByteString.Lazy     as LBS
-import           Data.Monoid              ((<>))
-import           Data.Text                (Text)
-import           Data.Text.Encoding       (encodeUtf8)
+import qualified Data.ByteString.Lazy       as LBS
+import qualified Data.ByteString.Lazy.Char8 as L8
+import           Data.Monoid                ((<>))
+import           Data.Text                  (Text)
+import           Data.Text.Encoding         (encodeUtf8)
+import           Database.SQLite.Simple     (Connection)
 
-import qualified Network.HTTP.Types       as HT
-import           Network.Wai              (Request, Response, ResponseReceived,
-                                           pathInfo, responseLBS,
-                                           strictRequestBody)
-import           Network.Wai.Handler.Warp (run)
+import qualified Network.HTTP.Types         as HT
+import           Network.Wai                (Request, Response,
+                                             ResponseReceived, pathInfo,
+                                             responseLBS, strictRequestBody)
+import           Network.Wai.Handler.Warp   (run)
 
-import           Parley.Types             (Add, Error (..), ParleyRequest (..),
-                                           mkAddRequest, topic)
+import           Parley.DB                  (closeDB, getCommentsForTopic,
+                                             initDB)
+import           Parley.Types               (Add, Error (..),
+                                             ParleyRequest (..), addTopic,
+                                             mkAddRequest)
 
 main :: IO ()
 main =
-  run 8080 app
+  bracket (initDB "test.sqlite" "comments")
+          closeDB
+          (run 8080 . app)
 
-app :: Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
-app request response = do
-  let pathBits = pathInfo request
-  body <- strictRequestBody request
-  let rsp = handleRequest <=< mkRequest pathBits $ body
-  response $ handleResponse rsp
+app :: Connection -> Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
+app conn request response = do
+  rq <- mkRequest request
+  rsp <- either (pure . Left) (handleRequest conn) rq
+  response $ either handleError id rsp
 
-mkRequest :: [Text] -> LBS.ByteString -> Either Error ParleyRequest
-mkRequest path body =
-  case path of
-    ("add":t:[])  -> mkAddRequest t body
-    ("view":t:[]) -> pure $ ViewRequest t
-    _             -> Left UnknownRoute
+mkRequest :: Request -> IO (Either Error ParleyRequest)
+mkRequest request =
+  case pathInfo request of
+    [t,"add"]  -> mkAddRequest t <$> strictRequestBody request
+    [t,"view"] -> pure . pure $ ViewRequest t
+    _          -> pure $ Left UnknownRoute
 
-handleRequest :: ParleyRequest -> Either Error Response
-handleRequest r =
+handleRequest :: Connection -> ParleyRequest -> IO (Either Error Response)
+handleRequest conn r = do
   case r of
-    AddRequest ar -> handleAdd ar
-    ViewRequest t -> handleView t
+    AddRequest ar -> handleAdd conn ar
+    ViewRequest t -> handleView conn t
 
-handleResponse :: Either Error Response -> Response
-handleResponse (Right r) = r
-handleResponse (Left e) =
+handleError :: Error -> Response
+handleError e =
   case e of
     NoTopicInRequest -> rsp HT.status404 "Topic was expected as the next URI component, but it was empty"
     UnknownRoute     -> rsp HT.status404 $ "Whatever you're looking for - it isn't here"
     NoCommentText    -> rsp HT.status400 $ "Bad request: expected body text"
   where rsp s t = responseLBS s [("Content-Type", "text/plain")] t
 
-handleAdd :: Add -> Either Error Response
-handleAdd ar =
-  pure $ responseLBS HT.status200
+handleAdd :: Connection -> Add -> IO (Either Error Response)
+handleAdd _conn ar =
+  pure . pure $ responseLBS HT.status200
                      contentPlainText
-                     (tToBS $ "I should be adding to '" <> topic ar <> "'!")
+                     (tToBS $ "I should be adding to '" <> addTopic ar <> "'!")
 
-handleView :: Text -> Either Error Response
-handleView _t = error "TODO: handle view with no topic"
-
-viewTopic :: Text -> Either Error Response
-viewTopic = error "TODO: viewTopic"
+handleView :: Connection -> Text -> IO (Either Error Response)
+handleView conn topic = do
+  comments <- getCommentsForTopic conn topic
+  let rsp = responseLBS HT.status200 contentPlainText $ "Have " <> L8.pack (show (length comments)) <> " comments for topic '" <> tToBS topic <> "'"
+  pure $ Right rsp
 
 contentPlainText :: HT.ResponseHeaders
 contentPlainText = [("Content-Type", "text/plain")]

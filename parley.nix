@@ -1,5 +1,5 @@
-{ mkDerivation, base, bytestring, http-types, stdenv, text, wai
-, warp
+{ mkDerivation, base, bytestring, http-types, sqlite-simple, stdenv
+, text, wai, warp
 }:
 mkDerivation {
   pname = "parley";
@@ -8,7 +8,7 @@ mkDerivation {
   isLibrary = true;
   isExecutable = true;
   libraryHaskellDepends = [
-    base bytestring http-types text wai warp
+    base bytestring http-types sqlite-simple text wai warp
   ];
   executableHaskellDepends = [ base ];
   homepage = "https://github.com/ajmccluskey/parley";
