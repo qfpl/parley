@@ -1,17 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 module Parley.Types where
 
 import           Control.Applicative                (liftA3)
 
-import           Data.Aeson                         (ToJSON)
+import           Data.Aeson                         (ToJSON, object, pairs,
+                                                     toEncoding, toJSON, (.=))
 import qualified Data.ByteString.Lazy               as LBS
+import           Data.Monoid                        ((<>))
 import           Data.Text                          (Text)
 import           Data.Text.Encoding                 (decodeUtf8)
 import           Database.SQLite.Simple             (FromRow (fromRow), field)
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
-import           GHC.Generics                       (Generic)
 
 data ContentType = PlainText
                  | JSON
@@ -43,9 +43,13 @@ data Comment = Comment { commentId      :: Integer
                        , commentTopic   :: Text
                        , commentComment :: Text
                        }
-               deriving (Show, Generic)
+               deriving Show
 
 instance FromRow Comment where
   fromRow = liftA3 Comment field field field
 
-instance ToJSON Comment
+instance ToJSON Comment where
+  toJSON (Comment id' topic comment) =
+    object ["id" .= id', "topic" .= topic, "comment" .= comment]
+  toEncoding (Comment id' topic comment) =
+    pairs ("id" .= id' <> "topic" .= topic <> "comment" .= comment)
