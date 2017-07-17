@@ -2,12 +2,13 @@
 
 module Parley.Types where
 
-import           Control.Applicative    (liftA3)
+import           Control.Applicative                (liftA3)
 
-import qualified Data.ByteString.Lazy   as LBS
-import           Data.Text              (Text)
-import           Data.Text.Encoding     (decodeUtf8)
-import           Database.SQLite.Simple (FromRow (fromRow), field)
+import qualified Data.ByteString.Lazy               as LBS
+import           Data.Text                          (Text)
+import           Data.Text.Encoding                 (decodeUtf8)
+import           Database.SQLite.Simple             (FromRow (fromRow), field)
+import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
 data ParleyRequest = AddRequest Add
                    | ViewRequest Text
@@ -26,11 +27,12 @@ mkAddRequest t b =
 data Error = NoTopicInRequest
            | UnknownRoute
            | NoCommentText
+           | SQLiteError SQLiteResponse
 
-data Comment =Comment { commentId      :: Integer
-                      , commentTopic   :: Text
-                      , commentComment :: Text
-                      }
+data Comment = Comment { commentId      :: Integer
+                       , commentTopic   :: Text
+                       , commentComment :: Text
+                       }
                deriving Show
 
 instance FromRow Comment where

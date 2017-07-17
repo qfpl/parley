@@ -1,15 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Parley.DB where
 
-import           Data.Text              (Text)
-import           Database.SQLite.Simple (Connection, Only (..), close, execute_,
-                                         open, query)
+import           Data.Text                          (Text)
+import           Database.SQLite.Simple             (Connection,
+                                                     NamedParam ((:=)),
+                                                     Only (..), close,
+                                                     executeNamed, execute_,
+                                                     open, query)
+import           Database.SQLite.SimpleErrors       (runDBAction)
+import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
-import           Parley.Types           (Comment (..))
+import           Parley.Types                       (Comment (..))
 
 -- | Create the database and table as necessary
-initDB :: FilePath -> Text -> IO Connection
-initDB dbPath _tbl = do
+initDB :: FilePath -> Text -> IO (Either SQLiteResponse Connection)
+initDB dbPath _tbl = runDBAction $ do
   conn <- open dbPath
   execute_ conn "CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY, topic TEXT, comment TEXT)"
   execute_ conn "CREATE INDEX IF NOT EXISTS idx_comments_topic ON comments (topic)"
@@ -18,6 +23,12 @@ initDB dbPath _tbl = do
 closeDB :: Connection -> IO ()
 closeDB = close
 
-getCommentsForTopic :: Connection -> Text -> IO [Comment]
-getCommentsForTopic conn topic =
+getComments :: Connection -> Text -> IO [Comment]
+getComments conn topic =
   query conn "SELECT id, topic, comment FROM comments WHERE topic = ?" (Only topic)
+
+addCommentToTopic :: Connection -> Text -> Text -> IO (Either SQLiteResponse ())
+addCommentToTopic conn topic comment =
+  let q      = "INSERT INTO comments (topic, comment) VALUES (:topic, :comment)"
+      params = [":topic" := topic, ":comment" := comment]
+   in runDBAction $ executeNamed conn q params

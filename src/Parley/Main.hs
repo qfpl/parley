@@ -17,17 +17,17 @@ import           Network.Wai                (Request, Response,
                                              responseLBS, strictRequestBody)
 import           Network.Wai.Handler.Warp   (run)
 
-import           Parley.DB                  (closeDB, getCommentsForTopic,
-                                             initDB)
-import           Parley.Types               (Add, Error (..),
-                                             ParleyRequest (..), addTopic,
+import           Parley.DB                  (closeDB, getComments, initDB, addCommentToTopic)
+import           Parley.Types               (Add (..), Error (..),
+                                             ParleyRequest (..),
                                              mkAddRequest)
 
 main :: IO ()
-main =
-  bracket (initDB "test.sqlite" "comments")
-          closeDB
-          (run 8080 . app)
+main = do
+  eConn <- initDB "test.sqlite" "comments"
+  either (putStrLn . ("Error initialisting DB: " <>) . show) runWithConn eConn
+  where runWithConn conn =
+          bracket (pure conn) closeDB (run 8080 . app)
 
 app :: Connection -> Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
 app conn request response = do
@@ -51,20 +51,26 @@ handleRequest conn r = do
 handleError :: Error -> Response
 handleError e =
   case e of
-    NoTopicInRequest -> rsp HT.status404 "Topic was expected as the next URI component, but it was empty"
-    UnknownRoute     -> rsp HT.status404 $ "Whatever you're looking for - it isn't here"
-    NoCommentText    -> rsp HT.status400 $ "Bad request: expected body text"
+    NoTopicInRequest     -> rsp HT.status404 "Topic was expected as the next URI component, but it was empty"
+    UnknownRoute         -> rsp HT.status404 "Whatever you're looking for - it isn't here"
+    NoCommentText        -> rsp HT.status400 "Bad request: expected body text"
+    SQLiteError sqlError -> rsp HT.status500 $ "Database error: " <> L8.pack (show sqlError)
   where rsp s t = responseLBS s [("Content-Type", "text/plain")] t
 
 handleAdd :: Connection -> Add -> IO (Either Error Response)
-handleAdd _conn ar =
-  pure . pure $ responseLBS HT.status200
-                     contentPlainText
-                     (tToBS $ "I should be adding to '" <> addTopic ar <> "'!")
+handleAdd conn (Add t c) = do
+  addResult <- addCommentToTopic conn t c
+  pure $ either (Left . SQLiteError) (Right . const (successfulAddResponse t)) addResult
+
+successfulAddResponse :: Text -> Response
+successfulAddResponse topic =
+  responseLBS HT.status200
+              contentPlainText
+              (tToBS $ "Successfully added a comment to '" <> topic <> "'")
 
 handleView :: Connection -> Text -> IO (Either Error Response)
 handleView conn topic = do
-  comments <- getCommentsForTopic conn topic
+  comments <- getComments conn topic
   let rsp = responseLBS HT.status200 contentPlainText $ "Have " <> L8.pack (show (length comments)) <> " comments for topic '" <> tToBS topic <> "'"
   pure $ Right rsp
 
