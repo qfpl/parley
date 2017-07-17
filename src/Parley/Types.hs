@@ -1,14 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Parley.Types where
 
 import           Control.Applicative                (liftA3)
 
+import           Data.Aeson                         (ToJSON)
 import qualified Data.ByteString.Lazy               as LBS
 import           Data.Text                          (Text)
 import           Data.Text.Encoding                 (decodeUtf8)
 import           Database.SQLite.Simple             (FromRow (fromRow), field)
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
+import           GHC.Generics                       (Generic)
 
 data ParleyRequest = AddRequest Add
                    | ViewRequest Text
@@ -33,7 +36,9 @@ data Comment = Comment { commentId      :: Integer
                        , commentTopic   :: Text
                        , commentComment :: Text
                        }
-               deriving Show
+               deriving (Show, Generic)
 
 instance FromRow Comment where
   fromRow = liftA3 Comment field field field
+
+instance ToJSON Comment

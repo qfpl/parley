@@ -4,6 +4,7 @@ module Parley.Main where
 
 import           Control.Exception.Base     (bracket)
 
+import           Data.Aeson                 (encode)
 import qualified Data.ByteString.Lazy       as LBS
 import qualified Data.ByteString.Lazy.Char8 as L8
 import           Data.Monoid                ((<>))
@@ -17,10 +18,10 @@ import           Network.Wai                (Request, Response,
                                              responseLBS, strictRequestBody)
 import           Network.Wai.Handler.Warp   (run)
 
-import           Parley.DB                  (closeDB, getComments, initDB, addCommentToTopic)
+import           Parley.DB                  (addCommentToTopic, closeDB,
+                                             getComments, initDB)
 import           Parley.Types               (Add (..), Error (..),
-                                             ParleyRequest (..),
-                                             mkAddRequest)
+                                             ParleyRequest (..), mkAddRequest)
 
 main :: IO ()
 main = do
@@ -70,12 +71,15 @@ successfulAddResponse topic =
 
 handleView :: Connection -> Text -> IO (Either Error Response)
 handleView conn topic = do
+  let viewResponse = responseLBS HT.status200 contentJSON . encode
   comments <- getComments conn topic
-  let rsp = responseLBS HT.status200 contentPlainText $ "Have " <> L8.pack (show (length comments)) <> " comments for topic '" <> tToBS topic <> "'"
-  pure $ Right rsp
+  pure $ either (Left . SQLiteError) (Right . viewResponse) comments
 
 contentPlainText :: HT.ResponseHeaders
 contentPlainText = [("Content-Type", "text/plain")]
+
+contentJSON :: HT.ResponseHeaders
+contentJSON = [("Content-Type", "text/json")]
 
 tToBS :: Text -> LBS.ByteString
 tToBS = LBS.fromStrict . encodeUtf8

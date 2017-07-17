@@ -23,9 +23,10 @@ initDB dbPath _tbl = runDBAction $ do
 closeDB :: Connection -> IO ()
 closeDB = close
 
-getComments :: Connection -> Text -> IO [Comment]
+getComments :: Connection -> Text -> IO (Either SQLiteResponse [Comment])
 getComments conn topic =
-  query conn "SELECT id, topic, comment FROM comments WHERE topic = ?" (Only topic)
+  let q = "SELECT id, topic, comment FROM comments WHERE topic = ?"
+   in runDBAction $ query conn q (Only topic)
 
 addCommentToTopic :: Connection -> Text -> Text -> IO (Either SQLiteResponse ())
 addCommentToTopic conn topic comment =
