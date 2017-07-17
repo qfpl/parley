@@ -5,8 +5,9 @@ module Parley.Main where
 import           Control.Exception.Base     (bracket)
 
 import           Data.Aeson                 (encode)
+import qualified Data.ByteString.Char8      as BS8
 import qualified Data.ByteString.Lazy       as LBS
-import qualified Data.ByteString.Lazy.Char8 as L8
+import qualified Data.ByteString.Lazy.Char8 as LBS8
 import           Data.Monoid                ((<>))
 import           Data.Text                  (Text)
 import           Data.Text.Encoding         (encodeUtf8)
@@ -20,8 +21,9 @@ import           Network.Wai.Handler.Warp   (run)
 
 import           Parley.DB                  (addCommentToTopic, closeDB,
                                              getComments, initDB)
-import           Parley.Types               (Add (..), Error (..),
-                                             ParleyRequest (..), mkAddRequest)
+import           Parley.Types               (Add (..), ContentType (..),
+                                             Error (..), ParleyRequest (..),
+                                             mkAddRequest)
 
 main :: IO ()
 main = do
@@ -55,8 +57,8 @@ handleError e =
     NoTopicInRequest     -> rsp HT.status404 "Topic was expected as the next URI component, but it was empty"
     UnknownRoute         -> rsp HT.status404 "Whatever you're looking for - it isn't here"
     NoCommentText        -> rsp HT.status400 "Bad request: expected body text"
-    SQLiteError sqlError -> rsp HT.status500 $ "Database error: " <> L8.pack (show sqlError)
-  where rsp s t = responseLBS s [("Content-Type", "text/plain")] t
+    SQLiteError sqlError -> rsp HT.status500 $ "Database error: " <> LBS8.pack (show sqlError)
+  where rsp s t = responseLBS s [contentHeader PlainText] t
 
 handleAdd :: Connection -> Add -> IO (Either Error Response)
 handleAdd conn (Add t c) = do
@@ -66,20 +68,17 @@ handleAdd conn (Add t c) = do
 successfulAddResponse :: Text -> Response
 successfulAddResponse topic =
   responseLBS HT.status200
-              contentPlainText
+              [contentHeader PlainText]
               (tToBS $ "Successfully added a comment to '" <> topic <> "'")
 
 handleView :: Connection -> Text -> IO (Either Error Response)
 handleView conn topic = do
-  let viewResponse = responseLBS HT.status200 contentJSON . encode
+  let viewResponse = responseLBS HT.status200 [contentHeader JSON] . encode
   comments <- getComments conn topic
   pure $ either (Left . SQLiteError) (Right . viewResponse) comments
 
-contentPlainText :: HT.ResponseHeaders
-contentPlainText = [("Content-Type", "text/plain")]
-
-contentJSON :: HT.ResponseHeaders
-contentJSON = [("Content-Type", "text/json")]
+contentHeader :: ContentType -> HT.Header
+contentHeader ct = ("Content-Type", BS8.pack (show ct))
 
 tToBS :: Text -> LBS.ByteString
 tToBS = LBS.fromStrict . encodeUtf8

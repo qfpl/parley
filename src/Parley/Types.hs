@@ -13,6 +13,13 @@ import           Database.SQLite.Simple             (FromRow (fromRow), field)
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 import           GHC.Generics                       (Generic)
 
+data ContentType = PlainText
+                 | JSON
+
+instance Show ContentType where
+  show PlainText = "text/plain"
+  show JSON      = "text/json"
+
 data ParleyRequest = AddRequest Add
                    | ViewRequest Text
 
