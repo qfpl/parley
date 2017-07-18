@@ -1,8 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parley.Types where
+module Parley.Types ( Comment
+                    , ContentType (..)
+                    , Error (..)
+                    , ParleyRequest (..)
+                    , CommentText (getComment)
+                    , Topic (getTopic)
+                    , mkAddRequest
+                    , mkViewRequest
+                    ) where
 
-import           Control.Applicative                (liftA3)
+import           Control.Applicative                (liftA2, liftA3)
 
 import           Data.Aeson                         (ToJSON, object, pairs,
                                                      toEncoding, toJSON, (.=))
@@ -13,37 +21,45 @@ import           Data.Text.Encoding                 (decodeUtf8)
 import           Database.SQLite.Simple             (FromRow (fromRow), field)
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
-data ContentType = PlainText
-                 | JSON
-
-instance Show ContentType where
-  show PlainText = "text/plain"
-  show JSON      = "text/json"
-
-data ParleyRequest = AddRequest Add
-                   | ViewRequest Text
+data ParleyRequest = AddRequest Topic CommentText
+                   | ViewRequest Topic
                    | ListRequest
-
-data Add = Add { addTopic   :: Text
-               , addComment :: Text
-               }
-
-mkAddRequest :: Text -> LBS.ByteString -> Either Error ParleyRequest
-mkAddRequest "" _ = Left NoTopicInRequest
-mkAddRequest _ "" = Left NoCommentText
-mkAddRequest t b =
-   pure . AddRequest . Add t . decodeUtf8 $ LBS.toStrict b
 
 data Error = NoTopicInRequest
            | UnknownRoute
            | NoCommentText
            | SQLiteError SQLiteResponse
 
-data Comment = Comment { commentId      :: Integer
-                       , commentTopic   :: Text
-                       , commentComment :: Text
+data Comment = Comment { _commentId      :: Integer
+                       , _commentTopic   :: Text
+                       , _commentComment :: Text
                        }
                deriving Show
+
+data ContentType = PlainText
+                 | JSON
+
+newtype Topic = Topic {getTopic :: Text} deriving (Eq, Show)
+
+newtype CommentText = CommentText { getComment :: Text } deriving (Eq, Show)
+
+mkAddRequest :: Text -> LBS.ByteString -> Either Error ParleyRequest
+mkAddRequest "" _ = Left NoTopicInRequest
+mkAddRequest _ "" = Left NoCommentText
+mkAddRequest t b =
+  liftA2 AddRequest (mkTopic t) . mkCommentText . decodeUtf8 $ LBS.toStrict b
+
+mkViewRequest :: Text -> Either Error ParleyRequest
+mkViewRequest "" = Left NoTopicInRequest
+mkViewRequest t  = ViewRequest <$> mkTopic t
+
+mkTopic :: Text -> Either Error Topic
+mkTopic "" = Left NoTopicInRequest
+mkTopic t  = pure $ Topic t
+
+mkCommentText :: Text -> Either Error CommentText
+mkCommentText "" = Left NoCommentText
+mkCommentText t  = pure $ CommentText t
 
 instance FromRow Comment where
   fromRow = liftA3 Comment field field field
@@ -53,3 +69,7 @@ instance ToJSON Comment where
     object ["id" .= id', "topic" .= topic, "comment" .= comment]
   toEncoding (Comment id' topic comment) =
     pairs ("id" .= id' <> "topic" .= topic <> "comment" .= comment)
+
+instance Show ContentType where
+  show PlainText = "text/plain"
+  show JSON      = "text/json"
