@@ -22,6 +22,7 @@ instance Show ContentType where
 
 data ParleyRequest = AddRequest Add
                    | ViewRequest Text
+                   | ListRequest
 
 data Add = Add { addTopic   :: Text
                , addComment :: Text

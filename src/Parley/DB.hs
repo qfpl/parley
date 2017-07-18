@@ -6,7 +6,7 @@ import           Database.SQLite.Simple             (Connection,
                                                      NamedParam ((:=)),
                                                      Only (..), close,
                                                      executeNamed, execute_,
-                                                     open, query)
+                                                     open, query, query_)
 import           Database.SQLite.SimpleErrors       (runDBAction)
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
@@ -33,3 +33,7 @@ addCommentToTopic conn topic comment =
   let q      = "INSERT INTO comments (topic, comment) VALUES (:topic, :comment)"
       params = [":topic" := topic, ":comment" := comment]
    in runDBAction $ executeNamed conn q params
+
+getTopics :: Connection -> IO (Either SQLiteResponse [Text])
+getTopics =
+  runDBAction . fmap concat . flip query_ "SELECT DISTINCT(topic) FROM comments"
