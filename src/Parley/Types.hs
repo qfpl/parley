@@ -32,8 +32,7 @@ mkAddRequest :: Text -> LBS.ByteString -> Either Error ParleyRequest
 mkAddRequest "" _ = Left NoTopicInRequest
 mkAddRequest _ "" = Left NoCommentText
 mkAddRequest t b =
-  let body = decodeUtf8 . LBS.toStrict $ b
-   in pure . AddRequest $ Add t body
+   pure . AddRequest . Add t . decodeUtf8 $ LBS.toStrict b
 
 data Error = NoTopicInRequest
            | UnknownRoute
