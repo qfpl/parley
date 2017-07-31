@@ -1,6 +1,6 @@
 { mkDerivation, aeson, base, bytestring, http-types
 , optparse-applicative, sqlite-simple, sqlite-simple-errors, stdenv
-, text, wai, warp
+, text, time, wai, warp
 }:
 mkDerivation {
   pname = "parley";
@@ -10,7 +10,7 @@ mkDerivation {
   isExecutable = true;
   libraryHaskellDepends = [
     aeson base bytestring http-types optparse-applicative sqlite-simple
-    sqlite-simple-errors text wai warp
+    sqlite-simple-errors text time wai warp
   ];
   executableHaskellDepends = [ base ];
   homepage = "https://github.com/ajmccluskey/parley";

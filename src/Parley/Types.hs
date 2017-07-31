@@ -10,7 +10,7 @@ module Parley.Types ( Comment
                     , mkViewRequest
                     ) where
 
-import           Control.Applicative                (liftA2, liftA3)
+import           Control.Applicative                (liftA2)
 
 import           Data.Aeson                         (ToJSON, object, pairs,
                                                      toEncoding, toJSON, (.=))
@@ -18,6 +18,7 @@ import qualified Data.ByteString.Lazy               as LBS
 import           Data.Monoid                        ((<>))
 import           Data.Text                          (Text)
 import           Data.Text.Encoding                 (decodeUtf8)
+import           Data.Time.Clock                    (UTCTime)
 import           Database.SQLite.Simple             (FromRow (fromRow), field)
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
@@ -30,11 +31,13 @@ data Error = NoTopicInRequest
            | NoCommentText
            | SQLiteError SQLiteResponse
 
-data Comment = Comment { _commentId      :: Integer
-                       , _commentTopic   :: Text
-                       , _commentComment :: Text
-                       }
-               deriving Show
+data Comment =
+  Comment { _commentId      :: Integer
+          , _commentTopic   :: Text
+          , _commentComment :: Text
+          , _commentTime    :: UTCTime
+          }
+          deriving Show
 
 data ContentType = PlainText
                  | JSON
@@ -62,13 +65,13 @@ mkCommentText "" = Left NoCommentText
 mkCommentText t  = pure $ CommentText t
 
 instance FromRow Comment where
-  fromRow = liftA3 Comment field field field
+  fromRow = Comment <$> field <*> field <*> field <*> field
 
 instance ToJSON Comment where
-  toJSON (Comment id' topic comment) =
-    object ["id" .= id', "topic" .= topic, "comment" .= comment]
-  toEncoding (Comment id' topic comment) =
-    pairs ("id" .= id' <> "topic" .= topic <> "comment" .= comment)
+  toJSON (Comment id' topic comment time) =
+    object ["id" .= id', "topic" .= topic, "comment" .= comment, "time" .= time]
+  toEncoding (Comment id' topic comment time) =
+    pairs ("id" .= id' <> "topic" .= topic <> "comment" .= comment <> "time" .= time)
 
 instance Show ContentType where
   show PlainText = "text/plain"
