@@ -21,6 +21,7 @@ import           Network.Wai                        (Request, Response,
                                                      strictRequestBody)
 import           Network.Wai.Handler.Warp           (run)
 
+import           Parley.Config                      (Config (..), Port (..), parseOptions)
 import           Parley.DB                          (addCommentToTopic, closeDB,
                                                      getComments, getTopics,
                                                      initDB)
@@ -33,11 +34,16 @@ import           Parley.Types                       (CommentText,
                                                      mkViewRequest)
 
 main :: IO ()
-main = do
-  eConn <- initDB "test.sqlite" "comments"
+main =
+  parseOptions "parley.json" >>=
+    either (putStrLn . ("Error parsing config: " <>)) runWithConfig
+
+runWithConfig :: Config -> IO ()
+runWithConfig c = do
+  let port' = fromIntegral . unPort $ port c
+      runWithConn conn = bracket (pure conn) closeDB (run port' . app)
+  eConn <- initDB (dbPath c) "comments"
   either (putStrLn . ("Error initialisting DB: " <>) . show) runWithConn eConn
-  where runWithConn conn =
-          bracket (pure conn) closeDB (run 8080 . app)
 
 app :: Connection -> Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
 app conn request response = do
