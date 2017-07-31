@@ -10,7 +10,7 @@ import           Data.Monoid         (Last (..), (<>))
 import           Options.Applicative (Parser, ParserInfo, auto, execParser,
                                       fullDesc, header, help, helper, info,
                                       long, metavar, option, optional, progDesc,
-                                      short, (<**>))
+                                      short, strOption, (<**>))
 
 newtype Port = Port { unPort :: Int16 }
                deriving Show
@@ -79,4 +79,4 @@ portParser =
 dbParser :: Parser (Last FilePath)
 dbParser =
   let dbHelp = help "Path to sqlite database"
-   in Last <$> (optional $ option auto (long "database" <> short 'd' <> metavar "SQLITE_FILE" <> dbHelp))
+   in Last <$> (optional $ strOption (long "database" <> short 'd' <> metavar "SQLITE_FILE" <> dbHelp))
