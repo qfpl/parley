@@ -12,7 +12,6 @@ import           Data.Monoid                        ((<>))
 import           Data.Text                          (Text)
 import           Data.Text.Encoding                 (encodeUtf8)
 import           Database.SQLite.Simple             (Connection)
-import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
 import qualified Network.HTTP.Types                 as HT
 import           Network.Wai                        (Request, Response,
@@ -86,9 +85,9 @@ successfulAddResponse t =
               [contentHeader PlainText]
               (tToBS $ "Successfully added a comment to '" <> getTopic t <> "'")
 
-dbJSONResponse :: ToJSON a => IO (Either SQLiteResponse a) -> IO (Either Error Response)
+dbJSONResponse :: ToJSON a => IO (Either Error a) -> IO (Either Error Response)
 dbJSONResponse =
-  (=<<) (pure . either (Left . SQLiteError) (Right . responseFromJSON))
+  (=<<) (pure . fmap responseFromJSON)
 
 responseFromJSON :: ToJSON a => a -> Response
 responseFromJSON =

@@ -2,6 +2,7 @@
 
 module Parley.DB where
 
+import           Data.Either                        (rights)
 import           Data.Text                          (Text)
 import           Data.Time.Clock                    (getCurrentTime)
 import           Database.SQLite.Simple             (Connection,
@@ -14,7 +15,9 @@ import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
 import           Parley.Types                       (Comment,
                                                      CommentText (getComment),
-                                                     Topic (getTopic))
+                                                     Error (SQLiteError),
+                                                     Topic (getTopic),
+                                                     fromDbComment)
 
 -- | Create the database and table as necessary
 initDB :: FilePath -> Text -> IO (Either SQLiteResponse Connection)
@@ -27,10 +30,11 @@ initDB dbPath _tbl = runDBAction $ do
 closeDB :: Connection -> IO ()
 closeDB = close
 
-getComments :: Connection -> Topic -> IO (Either SQLiteResponse [Comment])
+getComments :: Connection -> Topic -> IO (Either Error [Comment])
 getComments conn =
   let q = "SELECT id, topic, comment, time FROM comments WHERE topic = ?"
-   in runDBAction . query conn q . Only . getTopic
+      convert = either (Left . SQLiteError) (Right . rights . fmap fromDbComment)
+   in fmap convert . runDBAction . query conn q . Only . getTopic
 
 addCommentToTopic :: Connection -> Topic -> CommentText -> IO (Either SQLiteResponse ())
 addCommentToTopic conn t c = do
@@ -39,6 +43,9 @@ addCommentToTopic conn t c = do
       params = [":topic" := getTopic t, ":comment" := getComment c, ":time" := now]
    in runDBAction $ executeNamed conn q params
 
-getTopics :: Connection -> IO (Either SQLiteResponse [Text])
+getTopics :: Connection -> IO (Either Error [Text])
 getTopics =
-  runDBAction . fmap concat . flip query_ "SELECT DISTINCT(topic) FROM comments"
+  fmap toError . runDBAction . fmap concat . flip query_ "SELECT DISTINCT(topic) FROM comments"
+
+toError :: Either SQLiteResponse a -> Either Error a
+toError = either (Left . SQLiteError) Right

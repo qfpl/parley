@@ -1,4 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RecordWildCards            #-}
 
 module Parley.Types ( Comment
                     , ContentType (..)
@@ -6,6 +8,7 @@ module Parley.Types ( Comment
                     , ParleyRequest (..)
                     , CommentText (getComment)
                     , Topic (getTopic)
+                    , fromDbComment
                     , mkAddRequest
                     , mkViewRequest
                     ) where
@@ -31,22 +34,37 @@ data Error = NoTopicInRequest
            | NoCommentText
            | SQLiteError SQLiteResponse
 
+data DbComment =
+  DbComment { _dbCommentId    :: Integer
+            , _dbCommentTopic :: Text
+            , _dbCommentBody  :: Text
+            , _dbCommentTime  :: UTCTime
+            }
+            deriving Show
+
 data Comment =
-  Comment { _commentId      :: Integer
-          , _commentTopic   :: Text
-          , _commentComment :: Text
-          , _commentTime    :: UTCTime
+  Comment { _commentId    :: Integer
+          , _commentTopic :: Topic
+          , _commentBody  :: CommentText
+          , _commentTime  :: UTCTime
           }
           deriving Show
+
+fromDbComment :: DbComment -> Either Error Comment
+fromDbComment DbComment {..} =
+  Comment     _dbCommentId
+          <$> mkTopic _dbCommentTopic
+          <*> mkCommentText _dbCommentBody
+          <*> pure _dbCommentTime
 
 data ContentType = PlainText
                  | JSON
 
 newtype Topic = Topic {getTopic :: Text}
-                deriving (Eq, Show)
+                deriving (Eq, Show, ToJSON)
 
 newtype CommentText = CommentText {getComment :: Text}
-                      deriving (Eq, Show)
+                      deriving (Eq, Show, ToJSON)
 
 mkAddRequest :: Text -> LBS.ByteString -> Either Error ParleyRequest
 mkAddRequest "" _ = Left NoTopicInRequest
@@ -66,8 +84,8 @@ mkCommentText :: Text -> Either Error CommentText
 mkCommentText "" = Left NoCommentText
 mkCommentText t  = pure $ CommentText t
 
-instance FromRow Comment where
-  fromRow = Comment <$> field <*> field <*> field <*> field
+instance FromRow DbComment where
+  fromRow = DbComment <$> field <*> field <*> field <*> field
 
 instance ToJSON Comment where
   toJSON (Comment id' topic comment time) =
