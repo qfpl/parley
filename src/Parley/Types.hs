@@ -42,9 +42,11 @@ data Comment =
 data ContentType = PlainText
                  | JSON
 
-newtype Topic = Topic {getTopic :: Text} deriving (Eq, Show)
+newtype Topic = Topic {getTopic :: Text}
+                deriving (Eq, Show)
 
-newtype CommentText = CommentText { getComment :: Text } deriving (Eq, Show)
+newtype CommentText = CommentText {getComment :: Text}
+                      deriving (Eq, Show)
 
 mkAddRequest :: Text -> LBS.ByteString -> Either Error ParleyRequest
 mkAddRequest "" _ = Left NoTopicInRequest
