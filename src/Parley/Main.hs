@@ -2,35 +2,30 @@
 
 module Parley.Main where
 
-import           Control.Exception.Base             (bracket)
+import           Control.Exception.Base     (bracket)
 
-import           Data.Aeson                         (ToJSON, encode)
-import qualified Data.ByteString.Char8              as BS8
-import qualified Data.ByteString.Lazy               as LBS
-import qualified Data.ByteString.Lazy.Char8         as LBS8
-import           Data.Monoid                        ((<>))
-import           Data.Text                          (Text)
-import           Data.Text.Encoding                 (encodeUtf8)
-import           Database.SQLite.Simple             (Connection)
+import           Data.Aeson                 (ToJSON, encode)
+import qualified Data.ByteString.Lazy       as LBS
+import qualified Data.ByteString.Lazy.Char8 as LBS8
+import           Data.Monoid                ((<>))
+import           Data.Text                  (Text)
+import           Data.Text.Encoding         (encodeUtf8)
+import           Database.SQLite.Simple     (Connection)
 
-import qualified Network.HTTP.Types                 as HT
-import           Network.Wai                        (Request, Response,
-                                                     ResponseReceived, pathInfo,
-                                                     responseLBS,
-                                                     strictRequestBody)
-import           Network.Wai.Handler.Warp           (run)
+import qualified Network.HTTP.Types         as HT
+import           Network.Wai                (Request, Response,
+                                             ResponseReceived, pathInfo,
+                                             responseLBS, strictRequestBody)
+import           Network.Wai.Handler.Warp   (run)
 
-import           Parley.Config                      (Config (..), Port (..), parseOptions)
-import           Parley.DB                          (addCommentToTopic, closeDB,
-                                                     getComments, getTopics,
-                                                     initDB)
-import           Parley.Types                       (CommentText,
-                                                     ContentType (..),
-                                                     Error (..),
-                                                     ParleyRequest (..),
-                                                     Topic (getTopic),
-                                                     mkAddRequest,
-                                                     mkViewRequest)
+import           Parley.Config              (Config (..), Port (..),
+                                             parseOptions)
+import           Parley.DB                  (addCommentToTopic, closeDB,
+                                             getComments, getTopics, initDB)
+import           Parley.Types               (CommentText, ContentType (..),
+                                             Error (..), ParleyRequest (..),
+                                             Topic (getTopic), mkAddRequest,
+                                             mkViewRequest, render)
 
 main :: IO ()
 main =
@@ -87,7 +82,9 @@ handleAdd :: Connection
           -> IO (Either Error Response)
 handleAdd conn t c = do
   addResult <- addCommentToTopic conn t c
-  pure $ either (Left . SQLiteError) (Right . const (successfulAddResponse t)) addResult
+  pure $ either (Left . SQLiteError)
+                (Right . const (successfulAddResponse t))
+                addResult
 
 successfulAddResponse :: Topic -> Response
 successfulAddResponse t =
@@ -106,7 +103,7 @@ responseFromJSON =
   responseLBS HT.status200 [contentHeader JSON] . encode
 
 contentHeader :: ContentType -> HT.Header
-contentHeader ct = ("Content-Type", BS8.pack (show ct))
+contentHeader ct = ("Content-Type", render ct)
 
 tToBS :: Text -> LBS.ByteString
 tToBS = LBS.fromStrict . encodeUtf8

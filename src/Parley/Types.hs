@@ -11,11 +11,13 @@ module Parley.Types ( Comment
                     , fromDbComment
                     , mkAddRequest
                     , mkViewRequest
+                    , render
                     ) where
 
 import           Control.Applicative                (liftA2)
 import           Data.Aeson                         (ToJSON, object, pairs,
                                                      toEncoding, toJSON, (.=))
+import           Data.ByteString.Char8              (ByteString)
 import qualified Data.ByteString.Lazy               as LBS
 import           Data.Monoid                        ((<>))
 import           Data.Text                          (Text)
@@ -59,6 +61,10 @@ fromDbComment DbComment {..} =
 data ContentType = PlainText
                  | JSON
 
+render :: ContentType -> ByteString
+render PlainText = "text/plain"
+render JSON      = "text/json"
+
 newtype Topic = Topic {getTopic :: Text}
                 deriving (Eq, Show, ToJSON)
 
@@ -91,7 +97,3 @@ instance ToJSON Comment where
     object ["id" .= id', "topic" .= topic, "comment" .= comment, "time" .= time]
   toEncoding (Comment id' topic comment time) =
     pairs ("id" .= id' <> "topic" .= topic <> "comment" .= comment <> "time" .= time)
-
-instance Show ContentType where
-  show PlainText = "text/plain"
-  show JSON      = "text/json"
