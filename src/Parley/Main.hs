@@ -96,11 +96,9 @@ dbJSONResponse :: ToJSON a
                => IO (Either Error a)
                -> IO (Either Error Response)
 dbJSONResponse =
-  (=<<) (pure . fmap responseFromJSON)
-
-responseFromJSON :: ToJSON a => a -> Response
-responseFromJSON =
-  responseLBS HT.status200 [contentHeader JSON] . encode
+  let responseFromJSON =
+        responseLBS HT.status200 [contentHeader JSON] . encode
+   in (=<<) (pure . fmap responseFromJSON)
 
 contentHeader :: ContentType -> HT.Header
 contentHeader ct = ("Content-Type", render ct)
