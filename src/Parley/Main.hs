@@ -37,29 +37,36 @@ main =
   parseOptions "parley.json" >>=
     either (putStrLn . ("Error parsing config: " <>)) runWithConfig
 
-runWithConfig :: Config -> IO ()
+runWithConfig :: Config
+              -> IO ()
 runWithConfig c = do
   let port' = fromIntegral . unPort $ port c
       runWithConn conn = bracket (pure conn) closeDB (run port' . app)
   eConn <- initDB (dbPath c) "comments"
   either (putStrLn . ("Error initialisting DB: " <>) . show) runWithConn eConn
 
-app :: Connection -> Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
+app :: Connection
+    -> Request
+    -> (Response -> IO ResponseReceived)
+    -> IO ResponseReceived
 app conn request response = do
   rq <- mkRequest request
   rsp <- either (pure . Left) (handleRequest conn) rq
   response $ either handleError id rsp
 
-mkRequest :: Request -> IO (Either Error ParleyRequest)
+mkRequest :: Request
+          -> IO (Either Error ParleyRequest)
 mkRequest request =
   case pathInfo request of
     [t,"add"]  -> mkAddRequest t <$> strictRequestBody request
     [t,"view"] -> pure $ mkViewRequest t
-    ["list"]   -> pure . pure $ ListRequest
-    _          -> pure $ Left UnknownRoute
+    ["list"]   -> pure (Right ListRequest)
+    _          -> pure (Left UnknownRoute)
 
-handleRequest :: Connection -> ParleyRequest -> IO (Either Error Response)
-handleRequest conn r = do
+handleRequest :: Connection
+              -> ParleyRequest
+              -> IO (Either Error Response)
+handleRequest conn r =
   case r of
     AddRequest topic comment -> handleAdd conn topic comment
     ViewRequest t            -> dbJSONResponse $ getComments conn t
@@ -74,7 +81,10 @@ handleError e =
     SQLiteError sqlError -> rsp HT.status500 $ "Database error: " <> LBS8.pack (show sqlError)
   where rsp s t = responseLBS s [contentHeader PlainText] t
 
-handleAdd :: Connection -> Topic -> CommentText -> IO (Either Error Response)
+handleAdd :: Connection
+          -> Topic
+          -> CommentText
+          -> IO (Either Error Response)
 handleAdd conn t c = do
   addResult <- addCommentToTopic conn t c
   pure $ either (Left . SQLiteError) (Right . const (successfulAddResponse t)) addResult
@@ -85,7 +95,9 @@ successfulAddResponse t =
               [contentHeader PlainText]
               (tToBS $ "Successfully added a comment to '" <> getTopic t <> "'")
 
-dbJSONResponse :: ToJSON a => IO (Either Error a) -> IO (Either Error Response)
+dbJSONResponse :: ToJSON a
+               => IO (Either Error a)
+               -> IO (Either Error Response)
 dbJSONResponse =
   (=<<) (pure . fmap responseFromJSON)
 
