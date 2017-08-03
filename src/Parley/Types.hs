@@ -14,7 +14,6 @@ module Parley.Types ( Comment
                     ) where
 
 import           Control.Applicative                (liftA2)
-
 import           Data.Aeson                         (ToJSON, object, pairs,
                                                      toEncoding, toJSON, (.=))
 import qualified Data.ByteString.Lazy               as LBS

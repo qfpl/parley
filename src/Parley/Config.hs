@@ -1,10 +1,7 @@
-{-# LANGUAGE RecordWildCards #-}
-
 -- | Parley's configuration - based on the partial options monoid.
 -- See https://medium.com/@jonathangfischoff/the-partial-options-monoid-pattern-31914a71fc67
 module Parley.Config where
 
-import           Data.Foldable       (fold)
 import           Data.Int            (Int16)
 import           Data.Monoid         (Last (..), (<>))
 import           Options.Applicative (Parser, ParserInfo, auto, execParser,
@@ -16,20 +13,25 @@ newtype Port = Port { unPort :: Int16 }
                deriving Show
 
 instance Read Port where
-  readsPrec = fmap (fmap (\(n, s) -> (Port n, s))) . readsPrec
+  readsPrec =
+    let portIt (n, s) = (Port n, s)
+    in fmap (fmap portIt) . readsPrec
 
 defaultConfig :: PartialConfig
-defaultConfig = PartialConfig { pcPort = pure (Port 8080)
-                              , pcDBPath = pure "parley.sqlite"
-                              }
+defaultConfig =
+  PartialConfig { pcPort = pure (Port 8080)
+                , pcDBPath = pure "parley.sqlite"
+                }
 
-data PartialConfig = PartialConfig { pcPort   :: Last Port
-                                   , pcDBPath :: Last FilePath
-                                   }
+data PartialConfig =
+  PartialConfig { pcPort   :: Last Port
+                , pcDBPath :: Last FilePath
+                }
 
-data Config = Config { port   :: Port
-                     , dbPath :: FilePath
-                     }
+data Config =
+  Config { port   :: Port
+         , dbPath :: FilePath
+         }
 
 instance Monoid PartialConfig where
   mempty = PartialConfig mempty mempty
@@ -38,20 +40,17 @@ instance Monoid PartialConfig where
                        }
 
 makeConfig :: PartialConfig -> Either String Config
-makeConfig PartialConfig {..} = do
-  port <- lastToEither "Missing port" pcPort
-  dbPath <- lastToEither "Missing database path" pcDBPath
-  pure Config {..}
-
-lastToEither :: e -> Last a -> Either e a
-lastToEither e (Last m) = maybe (Left e) Right m
+makeConfig pc = do
+  let lastToEither e (Last m) = maybe (Left e) Right m
+  port' <- lastToEither "Missing port" (pcPort pc)
+  dbPath' <- lastToEither "Missing DB path" (pcDBPath pc)
+  pure Config {port = port', dbPath = dbPath'}
 
 parseOptions :: FilePath -> IO (Either String Config)
-parseOptions configFilePath =
-  let configs = sequenceA [ parseConfigFile configFilePath
-                          , parseCommandLine
-                          ]
-   in fmap (makeConfig . fold . (defaultConfig :)) configs
+parseOptions configFilePath = do
+  fileConfig <- parseConfigFile configFilePath
+  commandLineConfig <- parseCommandLine
+  pure (makeConfig (defaultConfig <> fileConfig <> commandLineConfig))
 
 -- TODO: implement config file parsing
 parseConfigFile :: FilePath -> IO PartialConfig
@@ -61,11 +60,11 @@ parseCommandLine :: IO PartialConfig
 parseCommandLine = execParser commandLineParser
 
 commandLineParser :: ParserInfo PartialConfig
-commandLineParser = info (partialConfigParser <**> helper)
-                         (  fullDesc
-                         <> progDesc "Manage comments for a web blog"
-                         <> header "parley - simple comment management"
-                         )
+commandLineParser =
+  let mods =  fullDesc
+           <> progDesc "Manage comments for a web blog"
+           <> header "parley - simple comment management"
+   in info (partialConfigParser <**> helper) mods
 
 partialConfigParser :: Parser PartialConfig
 partialConfigParser =
@@ -74,9 +73,11 @@ partialConfigParser =
 portParser :: Parser (Last Port)
 portParser =
   let portHelp = help "TCP port to accept requests on"
-   in Last <$> (optional $ option auto (long "port" <> short 'p' <> metavar "PORT" <> portHelp))
+      mods = long "port" <> short 'p' <> metavar "PORT" <> portHelp
+   in Last <$> optional (option auto mods)
 
 dbParser :: Parser (Last FilePath)
 dbParser =
   let dbHelp = help "Path to sqlite database"
-   in Last <$> (optional $ strOption (long "database" <> short 'd' <> metavar "SQLITE_FILE" <> dbHelp))
+      mods = long "database" <> short 'd' <> metavar "SQLITE_FILE" <> dbHelp
+   in Last <$> optional (strOption mods)
