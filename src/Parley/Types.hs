@@ -1,6 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE RecordWildCards            #-}
 
 module Parley.Types ( Comment
                     , ContentType (..)
@@ -52,11 +51,11 @@ data Comment =
           deriving Show
 
 fromDbComment :: DbComment -> Either Error Comment
-fromDbComment DbComment {..} =
-  Comment     _dbCommentId
-          <$> mkTopic _dbCommentTopic
-          <*> mkCommentText _dbCommentBody
-          <*> pure _dbCommentTime
+fromDbComment dbc =
+  Comment     (_dbCommentId dbc)
+          <$> mkTopic (_dbCommentTopic dbc)
+          <*> mkCommentText (_dbCommentBody dbc)
+          <*> pure (_dbCommentTime dbc)
 
 data ContentType = PlainText
                  | JSON
