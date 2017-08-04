@@ -28,9 +28,11 @@ import           Parley.Types               (CommentText, ContentType (..),
                                              mkViewRequest, render)
 
 main :: IO ()
-main =
-  parseOptions "parley.json" >>=
-    either (putStrLn . ("Error parsing config: " <>)) runWithConfig
+main = do
+  eConfig <- parseOptions "parley.json"
+  case eConfig of
+    Left e -> putStrLn ("Error parsing config: " <> e)
+    Right config -> runWithConfig config
 
 runWithConfig :: Config
               -> IO ()
@@ -38,16 +40,24 @@ runWithConfig c = do
   let port' = fromIntegral . unPort $ port c
       runWithConn conn = bracket (pure conn) closeDB (run port' . app)
   eConn <- initDB (dbPath c) "comments"
-  either (putStrLn . ("Error initialisting DB: " <>) . show) runWithConn eConn
+  case eConn of
+    Left e -> putStrLn ("Error initialisting DB: " <> show e)
+    Right conn -> runWithConn conn
 
 app :: Connection
     -> Request
     -> (Response -> IO ResponseReceived)
     -> IO ResponseReceived
-app conn request response = do
-  rq <- mkRequest request
-  rsp <- either (pure . Left) (handleRequest conn) rq
-  response $ either handleError id rsp
+app conn request cb = do
+  let handleRq (Left e) = pure (Left e)
+      handleRq (Right r) = handleRequest conn r
+
+      handleRsp (Left e) = handleError e
+      handleRsp (Right rsp) = rsp
+
+  erq <- mkRequest request
+  ersp <- handleRq erq
+  cb (handleRsp ersp)
 
 mkRequest :: Request
           -> IO (Either Error ParleyRequest)
@@ -61,11 +71,11 @@ mkRequest request =
 handleRequest :: Connection
               -> ParleyRequest
               -> IO (Either Error Response)
-handleRequest conn r =
-  case r of
-    AddRequest topic comment -> handleAdd conn topic comment
-    ViewRequest t            -> dbJSONResponse $ getComments conn t
-    ListRequest              -> dbJSONResponse $ getTopics conn
+handleRequest conn rq =
+  case rq of
+    AddRequest t c -> handleAdd conn t c
+    ViewRequest t  -> dbJSONResponse $ getComments conn t
+    ListRequest    -> dbJSONResponse $ getTopics conn
 
 handleError :: Error -> Response
 handleError e =
@@ -82,9 +92,9 @@ handleAdd :: Connection
           -> IO (Either Error Response)
 handleAdd conn t c = do
   addResult <- addCommentToTopic conn t c
-  pure $ either (Left . SQLiteError)
-                (Right . const (successfulAddResponse t))
-                addResult
+  case addResult of
+    Left e -> pure (Left (SQLiteError e))
+    Right _ -> pure (Right (successfulAddResponse t))
 
 successfulAddResponse :: Topic -> Response
 successfulAddResponse t =

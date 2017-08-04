@@ -48,4 +48,7 @@ getTopics =
   fmap toError . runDBAction . fmap concat . flip query_ "SELECT DISTINCT(topic) FROM comments"
 
 toError :: Either SQLiteResponse a -> Either Error a
-toError = either (Left . SQLiteError) Right
+toError ea =
+  case ea of
+    Left e -> Left (SQLiteError e)
+    Right a -> Right a
