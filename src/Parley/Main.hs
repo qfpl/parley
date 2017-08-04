@@ -80,11 +80,17 @@ handleRequest conn rq =
 handleError :: Error -> Response
 handleError e =
   case e of
-    NoTopicInRequest     -> rsp HT.status400 "Empty topics not allowed"
-    UnknownRoute         -> rsp HT.status404 "Not found :("
-    NoCommentText        -> rsp HT.status400 "Empty body text not allowed"
-    SQLiteError sqlError -> rsp HT.status500 $ "Database error: " <> LBS8.pack (show sqlError)
-  where rsp s t = responseLBS s [contentHeader PlainText] t
+    NoTopicInRequest ->
+      rsp HT.status400 "Empty topics not allowed"
+    UnknownRoute ->
+      rsp HT.status404 "Not found :("
+    NoCommentText ->
+      rsp HT.status400 "Empty body text not allowed"
+    SQLiteError se ->
+      rsp HT.status500 (dbError se)
+  where
+    rsp s t = responseLBS s [contentHeader PlainText] t
+    dbError se = "Database error: " <> LBS8.pack (show se)
 
 handleAdd :: Connection
           -> Topic
@@ -105,10 +111,13 @@ successfulAddResponse t =
 dbJSONResponse :: ToJSON a
                => IO (Either Error a)
                -> IO (Either Error Response)
-dbJSONResponse =
-  let responseFromJSON =
-        responseLBS HT.status200 [contentHeader JSON] . encode
-   in (=<<) (pure . fmap responseFromJSON)
+dbJSONResponse iea = do
+  let responseFromJSON a =
+        responseLBS HT.status200
+                    [contentHeader JSON]
+                    (encode a)
+  ea <- iea
+  pure (fmap responseFromJSON ea)
 
 contentHeader :: ContentType -> HT.Header
 contentHeader ct = ("Content-Type", render ct)
