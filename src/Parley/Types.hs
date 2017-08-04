@@ -13,7 +13,6 @@ module Parley.Types ( Comment
                     , render
                     ) where
 
-import           Control.Applicative                (liftA2)
 import           Data.Aeson                         (ToJSON, object, pairs,
                                                      toEncoding, toJSON, (.=))
 import           Data.ByteString.Char8              (ByteString)
@@ -35,27 +34,25 @@ data Error = NoTopicInRequest
            | SQLiteError SQLiteResponse
 
 data DbComment =
-  DbComment { _dbCommentId    :: Integer
-            , _dbCommentTopic :: Text
-            , _dbCommentBody  :: Text
-            , _dbCommentTime  :: UTCTime
+  DbComment { dbCommentId    :: Integer
+            , dbCommentTopic :: Text
+            , dbCommentBody  :: Text
+            , dbCommentTime  :: UTCTime
             }
             deriving Show
 
-data Comment =
-  Comment { _commentId    :: Integer
-          , _commentTopic :: Topic
-          , _commentBody  :: CommentText
-          , _commentTime  :: UTCTime
-          }
-          deriving Show
+data Comment = Comment CommentId
+                       Topic
+                       CommentText
+                       UTCTime
+               deriving Show
 
 fromDbComment :: DbComment -> Either Error Comment
 fromDbComment dbc =
-  Comment     (_dbCommentId dbc)
-          <$> mkTopic (_dbCommentTopic dbc)
-          <*> mkCommentText (_dbCommentBody dbc)
-          <*> pure (_dbCommentTime dbc)
+  Comment     (CommentId (dbCommentId dbc))
+          <$> mkTopic (dbCommentTopic dbc)
+          <*> mkCommentText (dbCommentBody dbc)
+          <*> pure (dbCommentTime dbc)
 
 data ContentType = PlainText
                  | JSON
@@ -63,6 +60,9 @@ data ContentType = PlainText
 render :: ContentType -> ByteString
 render PlainText = "text/plain"
 render JSON      = "text/json"
+
+newtype CommentId = CommentId Integer
+                    deriving (Eq, Show, ToJSON)
 
 newtype Topic = Topic {getTopic :: Text}
                 deriving (Eq, Show, ToJSON)
@@ -74,7 +74,8 @@ mkAddRequest :: Text -> LBS.ByteString -> Either Error ParleyRequest
 mkAddRequest "" _ = Left NoTopicInRequest
 mkAddRequest _ "" = Left NoCommentText
 mkAddRequest t b =
-  liftA2 AddRequest (mkTopic t) . mkCommentText . decodeUtf8 $ LBS.toStrict b
+  let commentText = mkCommentText (decodeUtf8 (LBS.toStrict b))
+   in AddRequest <$> (mkTopic t) <*> commentText
 
 mkViewRequest :: Text -> Either Error ParleyRequest
 mkViewRequest "" = Left NoTopicInRequest
