@@ -73,7 +73,7 @@ getTopics :: ParleyDb -> IO (Either Error [Topic])
 getTopics (ParleyDb conn (Table t)) =
   let q = Query ("SELECT DISTINCT(topic) FROM " <> t)
       result = query_ conn q
-   in dbToParley mkTopic (fmap concat result)
+   in dbToParley (mkTopic . fromOnly) result
 
 dbToParley :: (a -> Either Error b)
            -> IO [a]
