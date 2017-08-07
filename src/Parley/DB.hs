@@ -37,11 +37,18 @@ initDB dbPath tbl = runDBAction $ do
 closeDB :: Connection -> IO ()
 closeDB = close
 
-getComments :: Connection -> Topic -> IO (Either Error [Comment])
-getComments conn =
-  let q = "SELECT id, topic, comment, time FROM comments WHERE topic = ?"
-      convert = either (Left . SQLiteError) (Right . rights . fmap fromDbComment)
-   in fmap convert . runDBAction . query conn q . Only . getTopic
+getComments :: Connection
+            -> Topic
+            -> IO (Either Error [Comment])
+getComments conn t = do
+  let q =  "SELECT id, topic, comment, time "
+        <> "FROM comments WHERE topic = ?"
+      p = Only (getTopic t)
+  result <- runDBAction (query conn q p)
+  case result of
+    Left e -> (pure . Left . SQLiteError) e
+    Right cs ->
+      (pure . Right . rights . fmap fromDbComment) cs
 
 addCommentToTopic :: Connection -> Topic -> CommentText -> IO (Either SQLiteResponse ())
 addCommentToTopic conn t c = do
