@@ -96,17 +96,17 @@ handleAdd :: ParleyDb
           -> Topic
           -> CommentText
           -> IO (Either Error Response)
-handleAdd conn t c = do
-  addResult <- addCommentToTopic conn t c
-  case addResult of
-    Left e  -> pure (Left (SQLiteError e))
-    Right _ -> pure (Right (successfulAddResponse t))
+handleAdd conn t c =
+  let addResult = addCommentToTopic conn t c
+      success = const (successfulAddResponse t)
+   in fmap (fmap success) addResult
 
 successfulAddResponse :: Topic -> Response
 successfulAddResponse t =
   responseLBS HT.status200
               [contentHeader PlainText]
-              (tToBS $ "Successfully added a comment to '" <> getTopic t <> "'")
+              (tToBS ("Successfully added a comment to '"
+                      <> getTopic t <> "'"))
 
 dbJSONResponse :: ToJSON a
                => IO (Either Error a)

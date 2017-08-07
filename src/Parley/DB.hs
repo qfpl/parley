@@ -56,12 +56,18 @@ getComments (ParleyDb conn _) t =
       result = query conn q p
    in dbToParley fromDbComment result
 
-addCommentToTopic :: ParleyDb -> Topic -> CommentText -> IO (Either SQLiteResponse ())
+addCommentToTopic :: ParleyDb
+                  -> Topic
+                  -> CommentText
+                  -> IO (Either Error ())
 addCommentToTopic (ParleyDb conn _) t c = do
   now <- getCurrentTime
   let q      = "INSERT INTO comments (topic, comment, time) VALUES (:topic, :comment, :time)"
       params = [":topic" := getTopic t, ":comment" := getComment c, ":time" := now]
-   in runDBAction $ executeNamed conn q params
+  result <- runDBAction (executeNamed conn q params)
+  case result of
+    Left e -> pure (Left (SQLiteError e))
+    Right a -> pure (Right a)
 
 getTopics :: ParleyDb -> IO (Either Error [Topic])
 getTopics (ParleyDb conn (Table t)) =
