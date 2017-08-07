@@ -10,7 +10,6 @@ import qualified Data.ByteString.Lazy.Char8 as LBS8
 import           Data.Monoid                ((<>))
 import           Data.Text                  (Text)
 import           Data.Text.Encoding         (encodeUtf8)
-import           Database.SQLite.Simple     (Connection)
 
 import qualified Network.HTTP.Types         as HT
 import           Network.Wai                (Request, Response,
@@ -20,8 +19,9 @@ import           Network.Wai.Handler.Warp   (run)
 
 import           Parley.Config              (Config (..), Port (..),
                                              parseOptions)
-import           Parley.DB                  (addCommentToTopic, closeDB,
-                                             getComments, getTopics, initDB)
+import           Parley.DB                  (ParleyDb, addCommentToTopic,
+                                             closeDB, getComments, getTopics,
+                                             initDB)
 import           Parley.Types               (CommentText, ContentType (..),
                                              Error (..), ParleyRequest (..),
                                              Topic (getTopic), mkAddRequest,
@@ -44,15 +44,15 @@ runWithConfig c = do
     Left e -> putStrLn ("Error initialisting DB: " <> show e)
     Right conn -> runWithConn conn
 
-app :: Connection
+app :: ParleyDb
     -> Request
     -> (Response -> IO ResponseReceived)
     -> IO ResponseReceived
-app conn request cb = do
-  let handleRq (Left e) = pure (Left e)
-      handleRq (Right r) = handleRequest conn r
+app db request cb = do
+  let handleRq (Left e)  = pure (Left e)
+      handleRq (Right r) = handleRequest db r
 
-      handleRsp (Left e) = handleError e
+      handleRsp (Left e)    = handleError e
       handleRsp (Right rsp) = rsp
 
   erq <- mkRequest request
@@ -68,7 +68,7 @@ mkRequest request =
     ["list"]   -> pure (Right ListRequest)
     _          -> pure (Left UnknownRoute)
 
-handleRequest :: Connection
+handleRequest :: ParleyDb
               -> ParleyRequest
               -> IO (Either Error Response)
 handleRequest conn rq =
@@ -92,14 +92,14 @@ handleError e =
     rsp s t = responseLBS s [contentHeader PlainText] t
     dbError se = "Database error: " <> LBS8.pack (show se)
 
-handleAdd :: Connection
+handleAdd :: ParleyDb
           -> Topic
           -> CommentText
           -> IO (Either Error Response)
 handleAdd conn t c = do
   addResult <- addCommentToTopic conn t c
   case addResult of
-    Left e -> pure (Left (SQLiteError e))
+    Left e  -> pure (Left (SQLiteError e))
     Right _ -> pure (Right (successfulAddResponse t))
 
 successfulAddResponse :: Topic -> Response

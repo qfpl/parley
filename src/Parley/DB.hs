@@ -1,6 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parley.DB where
+module Parley.DB ( ParleyDb
+                 , initDB
+                 , closeDB
+                 , getComments
+                 , addCommentToTopic
+                 , getTopics
+                 ) where
 
 import           Data.Either                        (rights)
 import           Data.Monoid                        ((<>))
@@ -18,13 +24,16 @@ import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 import           Parley.Types                       (Comment,
                                                      CommentText (getComment),
                                                      Error (SQLiteError),
+                                                     Table (..),
                                                      Topic (getTopic),
-                                                     fromDbComment)
+                                                     fromDbComment, mkTopic)
+
+data ParleyDb = ParleyDb Connection Table
 
 -- | Create the database and table as necessary
 initDB :: FilePath
        -> Text
-       -> IO (Either SQLiteResponse Connection)
+       -> IO (Either SQLiteResponse ParleyDb)
 initDB dbPath tbl = runDBAction $ do
   let createQ =
         Query ("CREATE TABLE IF NOT EXISTS " <> tbl
@@ -32,37 +41,36 @@ initDB dbPath tbl = runDBAction $ do
             <> "  comment TEXT, time INTEGER)")
   conn <- open dbPath
   execute_ conn createQ
-  pure conn
+  pure (ParleyDb conn (Table tbl))
 
-closeDB :: Connection -> IO ()
-closeDB = close
+closeDB :: ParleyDb -> IO ()
+closeDB (ParleyDb conn _) = close conn
 
-getComments :: Connection
+getComments :: ParleyDb
             -> Topic
             -> IO (Either Error [Comment])
-getComments conn t = do
+getComments (ParleyDb conn _) t = do
   let q =  "SELECT id, topic, comment, time "
         <> "FROM comments WHERE topic = ?"
       p = Only (getTopic t)
   result <- runDBAction (query conn q p)
-  case result of
-    Left e -> (pure . Left . SQLiteError) e
-    Right cs ->
-      (pure . Right . rights . fmap fromDbComment) cs
+  dbToParley fromDbComment result
 
-addCommentToTopic :: Connection -> Topic -> CommentText -> IO (Either SQLiteResponse ())
-addCommentToTopic conn t c = do
+addCommentToTopic :: ParleyDb -> Topic -> CommentText -> IO (Either SQLiteResponse ())
+addCommentToTopic (ParleyDb conn _) t c = do
   now <- getCurrentTime
   let q      = "INSERT INTO comments (topic, comment, time) VALUES (:topic, :comment, :time)"
       params = [":topic" := getTopic t, ":comment" := getComment c, ":time" := now]
    in runDBAction $ executeNamed conn q params
 
-getTopics :: Connection -> IO (Either Error [Text])
-getTopics =
-  fmap toError . runDBAction . fmap concat . flip query_ "SELECT DISTINCT(topic) FROM comments"
+getTopics :: ParleyDb -> IO (Either Error [Topic])
+getTopics (ParleyDb conn (Table t)) = do
+  let q = Query ("SELECT DISTINCT(topic) FROM " <> t)
+  result <- runDBAction (query_ conn q)
+  dbToParley mkTopic (fmap concat result)
 
-toError :: Either SQLiteResponse a -> Either Error a
-toError ea =
-  case ea of
-    Left e  -> Left (SQLiteError e)
-    Right a -> Right a
+dbToParley :: (a -> Either Error b) -> Either SQLiteResponse [a] -> IO (Either Error [b])
+dbToParley f result =
+  case result of
+    Left e   -> (pure . Left . SQLiteError) e
+    Right as -> (pure . Right . rights . fmap f) as

@@ -6,9 +6,11 @@ module Parley.Types ( Comment
                     , Error (..)
                     , ParleyRequest (..)
                     , CommentText (getComment)
+                    , Table (..)
                     , Topic (getTopic)
                     , fromDbComment
                     , mkAddRequest
+                    , mkTopic
                     , mkViewRequest
                     , render
                     ) where
@@ -60,6 +62,9 @@ data ContentType = PlainText
 render :: ContentType -> ByteString
 render PlainText = "text/plain"
 render JSON      = "text/json"
+
+newtype Table = Table Text
+                deriving (Show)
 
 newtype CommentId = CommentId Integer
                     deriving (Eq, Show, ToJSON)
