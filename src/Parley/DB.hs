@@ -3,13 +3,15 @@
 module Parley.DB where
 
 import           Data.Either                        (rights)
+import           Data.Monoid                        ((<>))
 import           Data.Text                          (Text)
 import           Data.Time.Clock                    (getCurrentTime)
 import           Database.SQLite.Simple             (Connection,
                                                      NamedParam ((:=)),
-                                                     Only (..), close,
-                                                     executeNamed, execute_,
-                                                     open, query, query_)
+                                                     Only (..), Query (..),
+                                                     close, executeNamed,
+                                                     execute_, open, query,
+                                                     query_)
 import           Database.SQLite.SimpleErrors       (runDBAction)
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
@@ -20,11 +22,21 @@ import           Parley.Types                       (Comment,
                                                      fromDbComment)
 
 -- | Create the database and table as necessary
-initDB :: FilePath -> Text -> IO (Either SQLiteResponse Connection)
-initDB dbPath _tbl = runDBAction $ do
+initDB :: FilePath
+       -> Text
+       -> IO (Either SQLiteResponse Connection)
+initDB dbPath tbl = runDBAction $ do
+  let createQ =
+        Query ("CREATE TABLE IF NOT EXISTS " <> tbl
+            <> " (id INTEGER PRIMARY KEY, topic TEXT,"
+            <> "  comment TEXT, time INTEGER)")
+      indexName = "idx_" <> tbl <> "_topic"
+      indexQ =
+        Query ("CREATE INDEX IF NOT EXISTS " <> indexName
+            <> " ON " <> tbl <> " (topic)")
   conn <- open dbPath
-  execute_ conn "CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY, topic TEXT, comment TEXT, time INTEGER)"
-  execute_ conn "CREATE INDEX IF NOT EXISTS idx_comments_topic ON comments (topic)"
+  execute_ conn createQ
+  execute_ conn indexQ
   pure conn
 
 closeDB :: Connection -> IO ()
@@ -50,5 +62,5 @@ getTopics =
 toError :: Either SQLiteResponse a -> Either Error a
 toError ea =
   case ea of
-    Left e -> Left (SQLiteError e)
+    Left e  -> Left (SQLiteError e)
     Right a -> Right a
