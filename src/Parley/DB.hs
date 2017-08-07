@@ -30,13 +30,8 @@ initDB dbPath tbl = runDBAction $ do
         Query ("CREATE TABLE IF NOT EXISTS " <> tbl
             <> " (id INTEGER PRIMARY KEY, topic TEXT,"
             <> "  comment TEXT, time INTEGER)")
-      indexName = "idx_" <> tbl <> "_topic"
-      indexQ =
-        Query ("CREATE INDEX IF NOT EXISTS " <> indexName
-            <> " ON " <> tbl <> " (topic)")
   conn <- open dbPath
   execute_ conn createQ
-  execute_ conn indexQ
   pure conn
 
 closeDB :: Connection -> IO ()
