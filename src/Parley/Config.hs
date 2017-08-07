@@ -9,6 +9,10 @@ import           Options.Applicative (Parser, ParserInfo, auto, execParser,
                                       long, metavar, option, optional, progDesc,
                                       short, strOption, (<**>))
 
+data ConfigError = MissingPort
+                 | MissingDbPath
+                 deriving Show
+
 newtype Port = Port { unPort :: Int16 }
                deriving Show
 
@@ -39,14 +43,15 @@ instance Monoid PartialConfig where
                        , pcDBPath = pcDBPath a <> pcDBPath b
                        }
 
-makeConfig :: PartialConfig -> Either String Config
+makeConfig :: PartialConfig -> Either ConfigError Config
 makeConfig pc = do
-  let lastToEither e (Last m) = maybe (Left e) Right m
-  port' <- lastToEither "Missing port" (pcPort pc)
-  dbPath' <- lastToEither "Missing DB path" (pcDBPath pc)
+  let lastToEither e (Last Nothing) = Left e
+      lastToEither _ (Last (Just v)) = Right v
+  port' <- lastToEither MissingPort (pcPort pc)
+  dbPath' <- lastToEither MissingDbPath (pcDBPath pc)
   pure Config {port = port', dbPath = dbPath'}
 
-parseOptions :: FilePath -> IO (Either String Config)
+parseOptions :: FilePath -> IO (Either ConfigError Config)
 parseOptions configFilePath = do
   fileConfig <- parseConfigFile configFilePath
   commandLineConfig <- parseCommandLine

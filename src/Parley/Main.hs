@@ -31,7 +31,7 @@ main :: IO ()
 main = do
   eConfig <- parseOptions "parley.json"
   case eConfig of
-    Left e -> putStrLn ("Error parsing config: " <> e)
+    Left e -> putStrLn ("Error parsing config: " <> show e)
     Right config -> runWithConfig config
 
 runWithConfig :: Config
