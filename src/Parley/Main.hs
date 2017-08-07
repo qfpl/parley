@@ -71,11 +71,11 @@ mkRequest request =
 handleRequest :: ParleyDb
               -> ParleyRequest
               -> IO (Either Error Response)
-handleRequest conn rq =
+handleRequest db rq =
   case rq of
-    AddRequest t c -> handleAdd conn t c
-    ViewRequest t  -> dbJSONResponse $ getComments conn t
-    ListRequest    -> dbJSONResponse $ getTopics conn
+    AddRequest t c -> handleAdd db t c
+    ViewRequest t  -> dbJSONResponse $ getComments db t
+    ListRequest    -> dbJSONResponse $ getTopics db
 
 handleError :: Error -> Response
 handleError e =
@@ -96,8 +96,8 @@ handleAdd :: ParleyDb
           -> Topic
           -> CommentText
           -> IO (Either Error Response)
-handleAdd conn t c =
-  let addResult = addCommentToTopic conn t c
+handleAdd db t c =
+  let addResult = addCommentToTopic db t c
       success = const (successfulAddResponse t)
    in fmap (fmap success) addResult
 
