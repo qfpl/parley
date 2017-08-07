@@ -7,7 +7,7 @@ import           Data.Monoid         (Last (..), (<>))
 import           Options.Applicative (Parser, ParserInfo, auto, execParser,
                                       fullDesc, header, help, helper, info,
                                       long, metavar, option, optional, progDesc,
-                                      short, strOption, (<**>))
+                                      short, strOption)
 
 data ConfigError = MissingPort
                  | MissingDbPath
@@ -69,7 +69,7 @@ commandLineParser =
   let mods =  fullDesc
            <> progDesc "Manage comments for a web blog"
            <> header "parley - simple comment management"
-   in info (partialConfigParser <**> helper) mods
+   in info (helper <*> partialConfigParser) mods
 
 partialConfigParser :: Parser PartialConfig
 partialConfigParser =
