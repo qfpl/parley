@@ -21,7 +21,7 @@ import           Parley.Config              (Config (..), Port (..),
                                              parseOptions)
 import           Parley.DB                  (ParleyDb, addCommentToTopic,
                                              closeDB, getComments, getTopics,
-                                             initDB)
+                                             initDB, Table (..))
 import           Parley.Types               (CommentText, ContentType (..),
                                              Error (..), ParleyRequest (..),
                                              Topic (getTopic), mkAddRequest,
@@ -39,9 +39,9 @@ runWithConfig :: Config
 runWithConfig c = do
   let port' = fromIntegral . unPort $ port c
       runWithConn conn = bracket (pure conn) closeDB (run port' . app)
-  eConn <- initDB (dbPath c) "comments"
+  eConn <- initDB (dbPath c) (Table "comments")
   case eConn of
-    Left e -> putStrLn ("Error initialisting DB: " <> show e)
+    Left e     -> putStrLn ("Error initialisting DB: " <> show e)
     Right conn -> runWithConn conn
 
 app :: ParleyDb

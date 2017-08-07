@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Parley.DB ( ParleyDb
+                 , Table (..)
                  , initDB
                  , closeDB
                  , getComments
@@ -10,7 +11,6 @@ module Parley.DB ( ParleyDb
 
 import           Data.Either                        (rights)
 import           Data.Monoid                        ((<>))
-import           Data.Text                          (Text)
 import           Data.Time.Clock                    (getCurrentTime)
 import           Database.SQLite.Simple             (Connection,
                                                      NamedParam ((:=)),
@@ -32,16 +32,16 @@ data ParleyDb = ParleyDb Connection Table
 
 -- | Create the database and table as necessary
 initDB :: FilePath
-       -> Text
+       -> Table
        -> IO (Either SQLiteResponse ParleyDb)
-initDB dbPath tbl = runDBAction $ do
+initDB dbPath t@(Table tbl) = runDBAction $ do
   let createQ =
         Query ("CREATE TABLE IF NOT EXISTS " <> tbl
             <> " (id INTEGER PRIMARY KEY, topic TEXT,"
             <> "  comment TEXT, time INTEGER)")
   conn <- open dbPath
   execute_ conn createQ
-  pure (ParleyDb conn (Table tbl))
+  pure (ParleyDb conn t)
 
 closeDB :: ParleyDb -> IO ()
 closeDB (ParleyDb conn _) = close conn
