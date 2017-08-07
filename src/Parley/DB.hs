@@ -49,12 +49,12 @@ closeDB (ParleyDb conn _) = close conn
 getComments :: ParleyDb
             -> Topic
             -> IO (Either Error [Comment])
-getComments (ParleyDb conn _) t = do
+getComments (ParleyDb conn _) t =
   let q =  "SELECT id, topic, comment, time "
         <> "FROM comments WHERE topic = ?"
       p = Only (getTopic t)
-  result <- runDBAction (query conn q p)
-  dbToParley fromDbComment result
+      result = query conn q p
+   in dbToParley fromDbComment result
 
 addCommentToTopic :: ParleyDb -> Topic -> CommentText -> IO (Either SQLiteResponse ())
 addCommentToTopic (ParleyDb conn _) t c = do
@@ -64,13 +64,16 @@ addCommentToTopic (ParleyDb conn _) t c = do
    in runDBAction $ executeNamed conn q params
 
 getTopics :: ParleyDb -> IO (Either Error [Topic])
-getTopics (ParleyDb conn (Table t)) = do
+getTopics (ParleyDb conn (Table t)) =
   let q = Query ("SELECT DISTINCT(topic) FROM " <> t)
-  result <- runDBAction (query_ conn q)
-  dbToParley mkTopic (fmap concat result)
+      result = query_ conn q
+   in dbToParley mkTopic (fmap concat result)
 
-dbToParley :: (a -> Either Error b) -> Either SQLiteResponse [a] -> IO (Either Error [b])
-dbToParley f result =
+dbToParley :: (a -> Either Error b)
+           -> IO [a]
+           -> IO (Either Error [b])
+dbToParley f a = do
+  result <- runDBAction a
   case result of
     Left e   -> (pure . Left . SQLiteError) e
     Right as -> (pure . Right . rights . fmap f) as
