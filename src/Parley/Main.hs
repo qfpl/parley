@@ -63,8 +63,9 @@ mkRequest :: Request
           -> IO (Either Error ParleyRequest)
 mkRequest request =
   case pathInfo request of
-    [t,"add"]  -> mkAddRequest t <$> strictRequestBody request
-    [t,"view"] -> pure $ mkViewRequest t
+    [t,"add"]  -> fmap (mkAddRequest t)
+                       (strictRequestBody request)
+    [t,"view"] -> pure (mkViewRequest t)
     ["list"]   -> pure (Right ListRequest)
     _          -> pure (Left UnknownRoute)
 
