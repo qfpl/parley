@@ -60,10 +60,15 @@ addCommentToTopic :: ParleyDb
                   -> Topic
                   -> CommentText
                   -> IO (Either Error ())
-addCommentToTopic (ParleyDb conn _) t c = do
+addCommentToTopic (ParleyDb conn (Table table)) t c = do
   now <- getCurrentTime
-  let q      = "INSERT INTO comments (topic, comment, time) VALUES (:topic, :comment, :time)"
-      params = [":topic" := getTopic t, ":comment" := getComment c, ":time" := now]
+  let q = Query ("INSERT INTO " <> table
+              <> "(topic, comment, time) "
+              <> "VALUES (:topic, :comment, :time)")
+      params = [ ":topic" := getTopic t
+               , ":comment" := getComment c
+               , ":time" := now
+               ]
   result <- runDBAction (executeNamed conn q params)
   case result of
     Left e -> pure (Left (SQLiteError e))
