@@ -75,8 +75,8 @@ handleRequest :: ParleyDb
 handleRequest db rq =
   case rq of
     AddRequest t c -> handleAdd db t c
-    ViewRequest t  -> dbJSONResponse $ getComments db t
-    ListRequest    -> dbJSONResponse $ getTopics db
+    ViewRequest t  -> getComments db t >>= dbJSONResponse
+    ListRequest    -> getTopics db >>= dbJSONResponse
 
 handleError :: Error -> Response
 handleError e =
@@ -110,15 +110,14 @@ successfulAddResponse t =
                       <> getTopic t <> "'"))
 
 dbJSONResponse :: ToJSON a
-               => IO (Either Error a)
+               => Either Error a
                -> IO (Either Error Response)
-dbJSONResponse iea = do
+dbJSONResponse ea =
   let responseFromJSON a =
         responseLBS HT.status200
                     [contentHeader JSON]
                     (encode a)
-  ea <- iea
-  pure (fmap responseFromJSON ea)
+   in pure (fmap responseFromJSON ea)
 
 contentHeader :: ContentType -> HT.Header
 contentHeader ct = ("Content-Type", render ct)
