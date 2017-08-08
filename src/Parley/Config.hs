@@ -4,10 +4,11 @@ module Parley.Config where
 
 import           Data.Int            (Int16)
 import           Data.Monoid         (Last (..), (<>))
-import           Options.Applicative (Parser, ParserInfo, auto, execParser,
-                                      fullDesc, header, help, helper, info,
-                                      long, metavar, option, optional, progDesc,
-                                      short, strOption)
+import           Options.Applicative (Parser, ParserInfo, eitherReader,
+                                      execParser, fullDesc, header, help,
+                                      helper, info, long, metavar, option,
+                                      optional, progDesc, short, strOption)
+import           Text.Read           (readEither)
 
 data ConfigError = MissingPort
                  | MissingDbPath
@@ -15,11 +16,6 @@ data ConfigError = MissingPort
 
 newtype Port = Port { unPort :: Int16 }
                deriving Show
-
-instance Read Port where
-  readsPrec =
-    let portIt (n, s) = (Port n, s)
-    in fmap (fmap portIt) . readsPrec
 
 defaultConfig :: PartialConfig
 defaultConfig =
@@ -45,7 +41,7 @@ instance Monoid PartialConfig where
 
 makeConfig :: PartialConfig -> Either ConfigError Config
 makeConfig pc = do
-  let lastToEither e (Last Nothing) = Left e
+  let lastToEither e (Last Nothing)  = Left e
       lastToEither _ (Last (Just v)) = Right v
   port' <- lastToEither MissingPort (pcPort pc)
   dbPath' <- lastToEither MissingDbPath (pcDBPath pc)
@@ -79,7 +75,8 @@ portParser :: Parser (Last Port)
 portParser =
   let portHelp = help "TCP port to accept requests on"
       mods = long "port" <> short 'p' <> metavar "PORT" <> portHelp
-   in Last <$> optional (option auto mods)
+      portReader = eitherReader (fmap Port . readEither)
+   in Last <$> optional (option portReader mods)
 
 dbParser :: Parser (Last FilePath)
 dbParser =
