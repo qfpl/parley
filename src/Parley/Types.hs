@@ -80,7 +80,7 @@ mkAddRequest "" _ = Left NoTopicInRequest
 mkAddRequest _ "" = Left NoCommentText
 mkAddRequest t b =
   let commentText = mkCommentText (decodeUtf8 (LBS.toStrict b))
-   in AddRequest <$> (mkTopic t) <*> commentText
+   in AddRequest <$> mkTopic t <*> commentText
 
 mkViewRequest :: Text -> Either Error ParleyRequest
 mkViewRequest "" = Left NoTopicInRequest
