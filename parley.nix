@@ -13,7 +13,7 @@ mkDerivation {
     sqlite-simple-errors text time wai warp
   ];
   executableHaskellDepends = [ base ];
-  homepage = "https://github.com/ajmccluskey/parley";
+  homepage = "https://github.com/qfpl/parley";
   description = "Light weight comments for the web";
   license = stdenv.lib.licenses.bsd3;
 }
